@@ -107,6 +107,40 @@ document.getElementById('uploadUsersBtn').onclick = async function() {
   }
 };
 
+document.getElementById('bulkUploadUsersBtn').onclick = async function() {
+  const fileInput = document.getElementById('userCSVFile');
+  if (!fileInput.files || !fileInput.files[0]) {
+    alert('Please select a CSV file first');
+    return;
+  }
+  
+  const file = fileInput.files[0];
+  const reader = new FileReader();
+  
+  reader.onload = async function(e) {
+    const csvText = e.target.result;
+    
+    try {
+      const res = await apiCall('/admin/bulk-create-users', {
+        token: session.token,
+        csvText,
+        passwordPrefix: ''
+      });
+      
+      if (res.success) {
+        alert('Users uploaded successfully! Created: ' + (res.created || 0) + ' users');
+        fileInput.value = '';
+      } else {
+        alert('Error: ' + (res.message || 'Failed to upload users'));
+      }
+    } catch (err) {
+      alert('Error: ' + err.message);
+    }
+  };
+  
+  reader.readAsText(file);
+};
+
 document.getElementById('listUsersBtn').onclick = async function() {
   try {
     const res = await apiCall('/admin/get-users', { token: session.token });
@@ -600,7 +634,7 @@ function initNavigator(total) {
   container.innerHTML = '';
   for (let i = 0; i < total; i++) {
     const dot = document.createElement('div');
-    dot.className = 'nav-dot not-visited';
+    dot.className = 'nav-dot not-answered';
     dot.innerText = i + 1;
     dot.onclick = () => goToQuestion(i);
     container.appendChild(dot);
@@ -614,16 +648,16 @@ function updateNavigator() {
     
     const qid = questionIds[i];
     
-    if (i === currentIndex) {
-      dot.classList.add('current');
-    } else if (markedForReview[qid]) {
+    if (markedForReview[qid]) {
       dot.classList.add('marked');
     } else if (answers[qid]) {
       dot.classList.add('answered');
-    } else if (visitedQuestions[i]) {
-      dot.classList.add('skipped');
     } else {
-      dot.classList.add('not-visited');
+      dot.classList.add('not-answered');
+    }
+    
+    if (i === currentIndex) {
+      dot.classList.add('current-highlight');
     }
   });
 }
@@ -712,10 +746,16 @@ function renderQuestion(q, i) {
   
   let html = '';
   
+  if (q.instructionText) {
+    html += `<div class="instruction-box">
+      <div class="instruction-text">${q.instructionText}</div>
+    </div>`;
+  }
+  
   if (q.passageText) {
     html += `<div class="passage-box">
-      <div class="passage-title">Read the following passage:</div>
-      <div class="passage-content">${q.passageText}</div>
+      <div class="passage-title">Read the following:</div>
+      <div class="passage-content">${q.passageText.replace(/\n/g, '<br>')}</div>
     </div>`;
   }
   

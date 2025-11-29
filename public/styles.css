@@ -129,19 +129,19 @@ h4 {
 }
 
 .timer-box {
-  background: linear-gradient(145deg, #fff8e1 0%, #ffecb3 100%);
-  border: 3px solid #ffc107;
+  background: linear-gradient(145deg, #f1f8e9 0%, #e8f5e9 100%);
+  border: 1px solid #c8e6c9;
   border-radius: 20px;
   padding: 15px 25px;
   text-align: center;
-  box-shadow: 0 8px 30px rgba(255, 193, 7, 0.3), inset 0 2px 10px rgba(255,255,255,0.5);
+  box-shadow: 0 2px 8px rgba(129, 199, 132, 0.1);
   min-width: 180px;
 }
 
 .timer-label {
   font-size: 0.85em;
-  color: #f57c00;
-  font-weight: 700;
+  color: #66bb6a;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1px;
   margin-bottom: 5px;
@@ -150,24 +150,24 @@ h4 {
 .timer-huge {
   font-size: 2.8em;
   font-weight: 800;
-  color: #e65100;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+  color: #81c784;
+  text-shadow: none;
   font-family: 'Courier New', monospace;
   letter-spacing: 2px;
 }
 
 .timer-box.warning {
-  background: linear-gradient(145deg, #ffebee 0%, #ffcdd2 100%);
-  border-color: #f44336;
-  animation: pulse-warning 1s infinite;
+  background: linear-gradient(145deg, #fff8e1 0%, #ffecb3 100%);
+  border-color: #ffca28;
+  animation: none;
 }
 
 .timer-box.warning .timer-huge {
-  color: #c62828;
+  color: #f9a825;
 }
 
 .timer-box.warning .timer-label {
-  color: #c62828;
+  color: #f9a825;
 }
 
 @keyframes pulse-warning {
@@ -216,18 +216,10 @@ h4 {
   transform: scale(1.15);
 }
 
-.nav-dot.not-visited {
+.nav-dot.not-answered {
   background: #e0e0e0;
   color: #757575;
   border-color: #bdbdbd;
-}
-
-.nav-dot.current {
-  background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
-  color: white;
-  border-color: #1565c0;
-  box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4);
-  transform: scale(1.1);
 }
 
 .nav-dot.answered {
@@ -236,10 +228,9 @@ h4 {
   border-color: #2e7d32;
 }
 
-.nav-dot.skipped {
-  background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
-  color: white;
-  border-color: #ef6c00;
+.nav-dot.current-highlight {
+  box-shadow: 0 0 0 3px #2196f3;
+  transform: scale(1.1);
 }
 
 .nav-dot.marked {
@@ -285,6 +276,7 @@ h4 {
 .legend-dot.gray { background: #9e9e9e; }
 .legend-dot.blue { background: #2196f3; }
 .legend-dot.purple { background: #9c27b0; }
+.legend-dot.red { background: #ef5350; }
 
 .btn-mark-review {
   background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%);
@@ -705,6 +697,22 @@ select.input-field {
     width: 45px;
     height: 45px;
   }
+}
+
+.instruction-box {
+  background: linear-gradient(145deg, #e3f2fd 0%, #bbdefb 100%);
+  border: 2px solid #64b5f6;
+  border-radius: 12px;
+  padding: 12px 18px;
+  margin-bottom: 15px;
+  box-shadow: 0 3px 10px rgba(33, 150, 243, 0.15);
+}
+
+.instruction-text {
+  font-size: 1em;
+  color: #1565c0;
+  font-weight: 600;
+  letter-spacing: 0.3px;
 }
 
 .passage-box {

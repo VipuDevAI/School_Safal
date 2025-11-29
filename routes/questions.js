@@ -82,10 +82,7 @@ router.post('/get-question', async (req, res) => {
 
     const questionId = assignedIds[index];
     const questionResult = await pool.query(
-      `SELECT q.*, p.passage_text 
-       FROM questions q 
-       LEFT JOIN passages p ON q.passage_id = p.id 
-       WHERE q.id = $1`,
+      `SELECT * FROM questions WHERE id = $1`,
       [questionId]
     );
 
@@ -104,7 +101,8 @@ router.post('/get-question', async (req, res) => {
       total: total,
       imageUrl: q.image_url || '',
       passageId: q.passage_id,
-      passageText: q.passage_text || ''
+      passageText: q.passage_text || '',
+      instructionText: q.instruction_text || ''
     });
   } catch (error) {
     console.error('Get question error:', error);

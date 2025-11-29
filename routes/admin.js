@@ -105,6 +105,7 @@ router.post('/bulk-create-users', requireAdmin, async (req, res) => {
     try {
       rows = parse(csvText, { skip_empty_lines: true, relax_column_count: true });
     } catch (e) {
+      // Fallback: split by newline and comma
       rows = csvText.split('\n').map(line => line.split(','));
     }
 
@@ -112,9 +113,14 @@ router.post('/bulk-create-users', requireAdmin, async (req, res) => {
       const row = rows[i];
       if (!row[0]) continue;
 
-      const username = (row[0] || '').trim().toLowerCase();
-      const displayName = row[1] ? row[1].trim() : username;
-      const password = row[2] ? row[2].trim() : (passwordPrefix || 'safal') + (i + 1);
+      // Accept ANY format for username, display name, and password
+      // Convert to string first to handle numbers
+      let username = String(row[0] || '').trim().toLowerCase();
+      let displayName = row[1] ? String(row[1]).trim() : username;
+      let password = row[2] ? String(row[2]).trim() : (passwordPrefix || 'safal') + (i + 1);
+
+      // Skip empty usernames
+      if (!username) continue;
 
       try {
         const existing = await pool.query(
@@ -127,7 +133,8 @@ router.post('/bulk-create-users', requireAdmin, async (req, res) => {
           continue;
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
+        // Hash password (works with any string including numbers)
+        const hashedPassword = await bcrypt.hash(String(password), 10);
         await pool.query(
           `INSERT INTO users (username, password, display_name, is_admin) 
            VALUES ($1, $2, $3, FALSE)`,
@@ -140,7 +147,8 @@ router.post('/bulk-create-users', requireAdmin, async (req, res) => {
       }
     }
 
-    res.json({ success: true, results });
+    const createdCount = results.filter(r => r[1] === 'OK').length;
+    res.json({ success: true, results, created: createdCount });
   } catch (error) {
     console.error('Bulk create users error:', error);
     res.json({ success: false, message: error.message });
@@ -214,9 +222,12 @@ router.post('/upload-word-questions', requireAdmin, async (req, res) => {
     const rawBlocks = html.split(/<p[^>]*>/).map(b => b.replace(/<\/p>/g, '').trim()).filter(b => b);
     
     // Build array of content items with text and images
+    // Track current instruction (## prefix) and passage (@@ prefix)
     let contentItems = [];
+    let currentInstruction = null;
     let currentPassage = null;
     let currentPassageId = null;
+    let collectingPassage = false;
     
     for (let i = 0; i < rawBlocks.length; i++) {
       const block = rawBlocks[i];
@@ -226,47 +237,88 @@ router.post('/upload-word-questions', requireAdmin, async (req, res) => {
       // Skip empty blocks (but keep image-only blocks)
       if (!plainText && !imgMatch) continue;
       
-      // Skip section headers like "Section A", "Section B", "Part I", etc.
-      const isSectionHeader = plainText.match(/^Section\s*[A-Z]/i) ||
-                              plainText.match(/^Part\s*[IVX\d]/i) ||
-                              plainText.toLowerCase().includes('multiple choice') ||
-                              plainText.toLowerCase().includes('answer the following') ||
-                              plainText.toLowerCase().includes('do as directed') ||
-                              plainText.toLowerCase().includes('fill in the blanks') ||
-                              plainText.toLowerCase().includes('choose the correct') ||
-                              plainText.toLowerCase().includes('marks)') ||
-                              plainText.toLowerCase().includes('question paper');
-      
-      if (isSectionHeader && plainText.length < 100) {
-        continue; // Skip section headers
+      // Check for INSTRUCTION marker (## prefix)
+      if (plainText.startsWith('##')) {
+        currentInstruction = plainText.replace(/^##\s*/, '').trim();
+        collectingPassage = false;
+        currentPassage = null;
+        currentPassageId = null;
+        continue;
       }
       
-      // Check for passage headers
-      const isPassageHeader = plainText.toLowerCase().includes('read the passage') ||
-                             plainText.toLowerCase().includes('read the following') ||
-                             plainText.toLowerCase().includes('read the poem') ||
-                             plainText.toLowerCase().includes('read the story') ||
-                             plainText.toLowerCase().includes('read the extract');
-      
-      if (isPassageHeader) {
+      // Check for PASSAGE/POEM marker (@@ prefix)
+      if (plainText.startsWith('@@')) {
         passageCount++;
         currentPassageId = passageCount;
         currentPassage = '';
+        collectingPassage = true;
+        // Store passage/poem title as instruction
+        const passageTitle = plainText.replace(/^@@\s*/, '').trim();
+        currentInstruction = passageTitle;
         continue;
       }
       
-      // Check if this is passage content (long text, not an answer line)
-      if (currentPassage !== null && plainText.length > 150 && !plainText.match(/^Answer\s*:/i)) {
-        currentPassage += (currentPassage ? ' ' : '') + plainText;
+      // Skip document headers and metadata
+      const isDocHeader = plainText.match(/^SAFAL\s*[-–]/i) ||
+                          plainText.toLowerCase().includes('mock question paper') ||
+                          plainText.toLowerCase().includes('question paper') ||
+                          plainText.match(/^MARKS\s*:/i) ||
+                          plainText.match(/^ENGLISH$/i) ||
+                          plainText.match(/^MATHEMATICS$/i) ||
+                          plainText.match(/^EVS$/i) ||
+                          plainText.match(/^MARKS\s*:\s*\d+/i);
+      
+      if (isDocHeader) {
         continue;
+      }
+      
+      // Skip Roman numeral section headers (I., II., III., IV., etc.) - these are captured by @@
+      const isRomanHeader = plainText.match(/^[IVX]+\.\s+/i);
+      if (isRomanHeader) {
+        continue;
+      }
+      
+      // Skip other section headers
+      const isSectionHeader = plainText.match(/^Section\s*[A-Z]/i) ||
+                              plainText.match(/^Part\s*[IVX\d]/i) ||
+                              plainText.toLowerCase().includes('multiple choice');
+      
+      if (isSectionHeader && plainText.length < 100) {
+        continue;
+      }
+      
+      // Check if this is an Answer line
+      const isAnswerLine = plainText.match(/^Answer\s*:\s*[A-D]/i);
+      
+      // Check if this looks like a numbered question (including blanks at start)
+      const isNumberedQuestion = plainText.match(/^(?:Q?\s*)?(\d+)[\.\)]\s*.+/i) || 
+                                  plainText.match(/^(?:Q?\s*)?(\d+)[\.\)]\s*_+/i);
+      
+      // If collecting passage and this is passage content (not a question or answer)
+      if (collectingPassage && !isAnswerLine && !isNumberedQuestion) {
+        // Check if this looks like an option (starts with A), B), etc or is very short like a fraction)
+        const looksLikeOption = plainText.match(/^[A-D][\.\)]/i) || 
+                                 plainText.match(/^[a-d][\.\)]/i) ||
+                                 (plainText.length < 20);
+        
+        if (!looksLikeOption && plainText.length > 20) {
+          currentPassage += plainText + '\n\n';
+          continue;
+        }
+      }
+      
+      // Stop collecting passage when we hit a numbered question
+      if (isNumberedQuestion) {
+        collectingPassage = false;
       }
       
       contentItems.push({
         text: plainText,
         html: block,
         image: imgMatch ? imgMatch[1] : null,
-        passageText: currentPassage,
-        passageId: currentPassageId
+        passageText: currentPassage ? currentPassage.trim() : null,
+        passageId: currentPassageId,
+        instructionText: currentInstruction
       });
     }
     
@@ -277,8 +329,9 @@ router.post('/upload-word-questions', requireAdmin, async (req, res) => {
     let questionStarts = [];
     for (let i = 0; i < contentItems.length; i++) {
       const text = contentItems[i].text;
-      // Match: 1. or 1) or Q1. or Q1) at start of line
-      if (text.match(/^(?:Q?\s*)?(\d+)[\.\)]\s+.+/i)) {
+      // Match: 1. or 1) or Q1. or Q1) at start of line (including blanks like "1. _____ is the capital")
+      // Also match questions starting immediately with blank: "1. _______"
+      if (text.match(/^(?:Q?\s*)?(\d+)[\.\)]\s*.+/i) || text.match(/^(?:Q?\s*)?(\d+)[\.\)]\s*_/i)) {
         questionStarts.push(i);
       }
     }
@@ -326,23 +379,41 @@ router.post('/upload-word-questions', requireAdmin, async (req, res) => {
           
           if (questionItems.length > 0 && optionItems.length >= 4) {
             let questionText = questionItems.map(q => q.text).join(' ').trim();
-            questionText = questionText.replace(/^\d+[\.\)]\s*/, '').trim();
+            // Remove question number but preserve blanks (underscores)
+            questionText = questionText.replace(/^\d+[\.\)]\s?/, '').trim();
+            // Ensure blanks are preserved (convert multiple underscores to proper blank display)
+            questionText = questionText.replace(/_+/g, match => match.length >= 3 ? '_______' : match);
             let questionImage = questionItems.find(q => q.image)?.image || '';
             
-            const optionA = optionItems[0].text.replace(/^[aA][\.\)]\s*/, '').trim();
-            const optionB = optionItems[1].text.replace(/^[bB][\.\)]\s*/, '').trim();
-            const optionC = optionItems[2].text.replace(/^[cC][\.\)]\s*/, '').trim();
-            const optionD = optionItems[3].text.replace(/^[dD][\.\)]\s*/, '').trim();
+            // Clean options - handle fractions and special characters
+            let optionA = optionItems[0].text.replace(/^[aA][\.\)]\s*/, '').trim();
+            let optionB = optionItems[1].text.replace(/^[bB][\.\)]\s*/, '').trim();
+            let optionC = optionItems[2].text.replace(/^[cC][\.\)]\s*/, '').trim();
+            let optionD = optionItems[3].text.replace(/^[dD][\.\)]\s*/, '').trim();
+            
+            // Handle image-only options
+            if (!optionA && optionItems[0].image) optionA = '[Image]';
+            if (!optionB && optionItems[1].image) optionB = '[Image]';
+            if (!optionC && optionItems[2].image) optionC = '[Image]';
+            if (!optionD && optionItems[3].image) optionD = '[Image]';
             
             const imageUrl = questionImage || optionItems.find(o => o.image)?.image || '';
-            const passageText = item.passageText || null;
-            const passageId = item.passageId || null;
             
-            if (questionText && (optionA || optionB)) {
+            // Get passage and instruction from question items (they inherit from context)
+            const passageText = questionItems[0].passageText || item.passageText || null;
+            const passageId = questionItems[0].passageId || item.passageId || null;
+            const instructionText = questionItems[0].instructionText || item.instructionText || null;
+            
+            // Check if we have valid options (text or image) - accept fractions like 1/2
+            const hasValidOptions = (optionA && optionA !== '[Option]') || 
+                                    (optionB && optionB !== '[Option]') || 
+                                    optionItems[0].image || optionItems[1].image;
+            
+            if (questionText && hasValidOptions) {
               await pool.query(
-                `INSERT INTO questions (subject, question_text, option_a, option_b, option_c, option_d, correct_answer, image_url, passage_id, passage_text)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-                [subject, questionText, optionA || '[Image]', optionB || '[Image]', optionC || '[Image]', optionD || '[Image]', correctAnswer, imageUrl, passageId, passageText]
+                `INSERT INTO questions (subject, question_text, option_a, option_b, option_c, option_d, correct_answer, image_url, passage_id, passage_text, instruction_text)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+                [subject, questionText, optionA || '[Option]', optionB || '[Option]', optionC || '[Option]', optionD || '[Option]', correctAnswer, imageUrl, passageId, passageText, instructionText]
               );
               added++;
             }
@@ -375,7 +446,10 @@ router.post('/upload-word-questions', requireAdmin, async (req, res) => {
         
         // First item is the question
         const questionItem = qItems[0];
-        let questionText = questionItem.text.replace(/^(?:Q?\s*)?\d+[\.\)]\s*/i, '').trim();
+        // Remove question number but preserve blanks (underscores) at start
+        let questionText = questionItem.text.replace(/^(?:Q?\s*)?\d+[\.\)]\s?/i, '').trim();
+        // Ensure blanks are preserved (convert multiple underscores to proper blank display)
+        questionText = questionText.replace(/_+/g, match => match.length >= 3 ? '_______' : match);
         let questionImage = questionItem.image || '';
         
         // Items before Answer line (excluding question) are options
@@ -388,23 +462,42 @@ router.post('/upload-word-questions', requireAdmin, async (req, res) => {
         const opts = optionItems.slice(-4);
         
         // Clean option text (remove a), b), etc. if present)
-        const optionA = opts[0].text.replace(/^[aA][\.\)]\s*/, '').trim();
-        const optionB = opts[1].text.replace(/^[bB][\.\)]\s*/, '').trim();
-        const optionC = opts[2].text.replace(/^[cC][\.\)]\s*/, '').trim();
-        const optionD = opts[3].text.replace(/^[dD][\.\)]\s*/, '').trim();
+        // Also handle fractions and special Unicode characters
+        let optionA = opts[0].text.replace(/^[aA][\.\)]\s*/, '').trim();
+        let optionB = opts[1].text.replace(/^[bB][\.\)]\s*/, '').trim();
+        let optionC = opts[2].text.replace(/^[cC][\.\)]\s*/, '').trim();
+        let optionD = opts[3].text.replace(/^[dD][\.\)]\s*/, '').trim();
         
-        // Get images
-        const imageUrl = questionImage || opts.find(o => o.image)?.image || '';
+        // If option is empty but has image, mark as image option
+        const optAImg = opts[0].image || '';
+        const optBImg = opts[1].image || '';
+        const optCImg = opts[2].image || '';
+        const optDImg = opts[3].image || '';
         
-        // Get passage info
+        if (!optionA && optAImg) optionA = '[Image]';
+        if (!optionB && optBImg) optionB = '[Image]';
+        if (!optionC && optCImg) optionC = '[Image]';
+        if (!optionD && optDImg) optionD = '[Image]';
+        
+        // Get images - prioritize question image, then option images
+        const imageUrl = questionImage || optAImg || optBImg || optCImg || optDImg || '';
+        
+        // Get passage and instruction info
         const passageText = questionItem.passageText || null;
         const passageId = questionItem.passageId || null;
+        const instructionText = questionItem.instructionText || null;
         
-        if (questionText && (optionA || optionB)) {
+        // Insert question if we have text and at least some options (text or image)
+        // Accept any option including fractions, numbers, single characters
+        const hasOptions = (optionA && optionA !== '[Option A]') || 
+                           (optionB && optionB !== '[Option B]') || 
+                           optAImg || optBImg;
+        
+        if (questionText && hasOptions) {
           await pool.query(
-            `INSERT INTO questions (subject, question_text, option_a, option_b, option_c, option_d, correct_answer, image_url, passage_id, passage_text)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-            [subject, questionText, optionA || '[Image]', optionB || '[Image]', optionC || '[Image]', optionD || '[Image]', correctAnswer, imageUrl, passageId, passageText]
+            `INSERT INTO questions (subject, question_text, option_a, option_b, option_c, option_d, correct_answer, image_url, passage_id, passage_text, instruction_text)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+            [subject, questionText, optionA || '[Option A]', optionB || '[Option B]', optionC || '[Option C]', optionD || '[Option D]', correctAnswer, imageUrl, passageId, passageText, instructionText]
           );
           added++;
         }

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>School Safal</title>
+  <title>School SAFAL</title>
   <link rel="stylesheet" href="styles.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
   <style>
@@ -14,9 +14,8 @@
 <body>
 
 <div class="page-header">
-  <div class="header-content">
-    <img src="logo.png" alt="MVM Logo" class="header-logo">
-    <div class="header-title">School Safal</div>
+  <div class="header-content" style="justify-content: center;">
+    <div class="header-title">School SAFAL</div>
   </div>
 </div>
 
@@ -37,7 +36,7 @@
 
   <div id="studentPanel" class="hidden card student-card">
     <div class="welcome-head">
-      <span>School Safal
+      <span>School SAFAL
         <span class="welcome-user">Welcome: <span id="stuInfo"></span></span>
       </span>
       <button type="button" id="studentLogoutBtn" class="student-logout-btn">Logout</button>
@@ -87,9 +86,7 @@
           <div class="nav-dots" id="navDots"></div>
           <div class="nav-legend">
             <div class="legend-item"><span class="legend-dot green"></span> Answered</div>
-            <div class="legend-item"><span class="legend-dot orange"></span> Skipped</div>
-            <div class="legend-item"><span class="legend-dot gray"></span> Not Visited</div>
-            <div class="legend-item"><span class="legend-dot blue"></span> Current</div>
+            <div class="legend-item"><span class="legend-dot gray"></span> Not Answered</div>
             <div class="legend-item"><span class="legend-dot purple"></span> Marked for Review</div>
           </div>
         </div>
@@ -122,13 +119,21 @@
       <div class="admin-section">
         <h4>User Management</h4>
         <div class="admin-form-group">
-          <label>Upload Users CSV</label>
-          <p class="form-help">Format: username, displayName, password (one per line)</p>
+          <label>Bulk Upload Users (CSV File)</label>
+          <p class="form-help">CSV format: username, displayName, password (one per line)</p>
+          <input type="file" id="userCSVFile" accept=".csv,.txt" class="input-field file-input">
+          <div class="admin-btn-group">
+            <button type="button" id="bulkUploadUsersBtn" class="admin-btn admin-btn-success">
+              <span class="btn-icon">📁</span>
+              <span>Bulk Upload</span>
+            </button>
+          </div>
+          <p style="margin: 10px 0; color: #666; font-size: 0.9em;">— OR enter manually —</p>
           <textarea id="userCSV" class="input-field" placeholder="teacher1,Teacher One,pass123
-student1,Student Name,test123"></textarea>
+student1,Student Name,test123" style="height: 80px;"></textarea>
           <input id="pwPrefix" class="input-field" placeholder="Default Password Prefix (e.g. safal)">
           <div class="admin-btn-group">
-            <button type="button" id="uploadUsersBtn" class="admin-btn admin-btn-success">
+            <button type="button" id="uploadUsersBtn" class="admin-btn admin-btn-primary">
               <span class="btn-icon">👥</span>
               <span>Upload Users</span>
             </button>
