@@ -81,22 +81,34 @@
           </div>
         </div>
         
-        <div class="question-navigator" id="questionNav">
-          <div class="nav-title">Question Navigator</div>
-          <div class="nav-dots" id="navDots"></div>
-          <div class="nav-legend">
-            <div class="legend-item"><span class="legend-dot green"></span> Answered</div>
-            <div class="legend-item"><span class="legend-dot gray"></span> Not Answered</div>
-            <div class="legend-item"><span class="legend-dot purple"></span> Marked for Review</div>
+        <div class="exam-content-wrapper">
+          <div class="exam-left-section">
+            <div id="questionArea"></div>
+            <div class="button-row" style="margin-top: 30px;">
+              <button type="button" id="prevBtn" class="btn btn-light">← Previous</button>
+              <button type="button" id="markReviewBtn" class="btn-mark-review">⚑ Mark for Review</button>
+              <button type="button" id="nextBtn" class="btn btn-primary">Next →</button>
+              <button type="button" id="submitBtn" class="btn btn-danger">End Assessment</button>
+            </div>
           </div>
-        </div>
-        
-        <div id="questionArea"></div>
-        <div class="button-row" style="margin-top: 30px;">
-          <button type="button" id="prevBtn" class="btn btn-light">← Previous</button>
-          <button type="button" id="markReviewBtn" class="btn-mark-review">⚑ Mark for Review</button>
-          <button type="button" id="nextBtn" class="btn btn-primary">Next →</button>
-          <button type="button" id="submitBtn" class="btn btn-danger">End Assessment</button>
+          
+          <div class="exam-right-sidebar">
+            <div class="question-navigator" id="questionNav">
+              <div class="nav-title">Questions</div>
+              <div class="nav-dots" id="navDots"></div>
+              <div class="nav-legend-compact">
+                <span class="legend-mini"><span class="legend-dot green"></span>Answered</span>
+                <span class="legend-mini"><span class="legend-dot gray"></span>Pending</span>
+                <span class="legend-mini"><span class="legend-dot purple"></span>Review</span>
+              </div>
+            </div>
+            <div class="review-section" id="reviewSection">
+              <div class="review-title">Marked for Review</div>
+              <div class="review-list" id="reviewList">
+                <div class="review-empty">No questions marked</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

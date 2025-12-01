@@ -885,6 +885,34 @@ function updateNavigator() {
       dot.classList.add('current-highlight');
     }
   });
+  
+  // Update review list in sidebar
+  updateReviewList();
+}
+
+function updateReviewList() {
+  const reviewList = document.getElementById('reviewList');
+  if (!reviewList) return;
+  
+  const reviewedQuestions = [];
+  questionIds.forEach((qid, index) => {
+    if (markedForReview[qid]) {
+      reviewedQuestions.push({ qid, index });
+    }
+  });
+  
+  if (reviewedQuestions.length === 0) {
+    reviewList.innerHTML = '<div class="review-empty">No questions marked</div>';
+  } else {
+    let html = '';
+    reviewedQuestions.forEach(({ qid, index }) => {
+      html += `<div class="review-item" onclick="goToQuestion(${index})">
+        <span class="review-item-icon">⚑</span>
+        <span>Question ${index + 1}</span>
+      </div>`;
+    });
+    reviewList.innerHTML = html;
+  }
 }
 
 async function goToQuestion(index) {
