@@ -27,6 +27,11 @@
     <form id="login-form">
       <input id="username" type="text" class="input-field" placeholder="Enter Username" required>
       <input id="password" type="password" class="input-field" placeholder="Enter Password" required>
+      <select id="loginClass" class="input-field">
+        <option value="">-- Select Class --</option>
+        <option value="V">Class V</option>
+        <option value="VIII">Class VIII</option>
+      </select>
       <div style="margin-top: 20px;">
         <button type="submit" class="btn btn-primary" style="width:100%;">Login</button>
       </div>
@@ -56,6 +61,7 @@
             <select id="classSelect" class="input-field" style="margin: 0;">
               <option value="">-- Select Class --</option>
               <option value="V">Class V</option>
+              <option value="VIII">Class VIII</option>
             </select>
           </div>
           <div>
@@ -133,6 +139,13 @@
         <div class="admin-form-group">
           <label>Bulk Upload Users (CSV File)</label>
           <p class="form-help">CSV format: username, displayName, password (one per line)</p>
+          <div style="margin-bottom: 12px;">
+            <label style="display: block; margin-bottom: 6px; font-weight: 600; color: #1b5e20; font-size: 0.9em;">Select Class for Users:</label>
+            <select id="userClassSelect" class="input-field" style="max-width: 200px;">
+              <option value="V">Class V</option>
+              <option value="VIII">Class VIII</option>
+            </select>
+          </div>
           <input type="file" id="userCSVFile" accept=".csv,.txt" class="input-field file-input">
           <div class="admin-btn-group">
             <button type="button" id="bulkUploadUsersBtn" class="admin-btn admin-btn-success">
@@ -172,11 +185,17 @@ student1,Student Name,test123" style="height: 80px;"></textarea>
         <h4>Question Bank</h4>
         <div class="admin-form-group">
           <label>Upload Word Document (.docx)</label>
-          <select id="wordSubject" class="input-field">
-            <option value="English">English</option>
-            <option value="Mathematics">Mathematics</option>
-            <option value="EVS">EVS</option>
-          </select>
+          <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <select id="wordSubject" class="input-field" style="flex: 1;">
+              <option value="English">English</option>
+              <option value="Mathematics">Mathematics</option>
+              <option value="EVS">EVS</option>
+            </select>
+            <select id="questionClassSelect" class="input-field" style="flex: 1;">
+              <option value="V">Class V</option>
+              <option value="VIII">Class VIII</option>
+            </select>
+          </div>
           <input type="file" id="wordFileInput" accept=".docx" class="input-field file-input">
           <p class="form-help">Supports passages, images, math formatting</p>
           <div class="admin-btn-group">
@@ -382,6 +401,12 @@ student1,Student Name,test123" style="height: 80px;"></textarea>
     <div class="detail-modal-body" id="detailModalBody"></div>
   </div>
 </div>
+
+<footer class="site-footer">
+  <div class="footer-content">
+    Powered by <strong>SmartGenEduX</strong> 2025
+  </div>
+</footer>
 
 <script src="app.js"></script>
 </body>

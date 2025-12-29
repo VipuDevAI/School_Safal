@@ -98,14 +98,14 @@ router.post('/create-user', requireAdmin, async (req, res) => {
 
 router.post('/bulk-create-users', requireAdmin, async (req, res) => {
   try {
-    const { csvText, passwordPrefix } = req.body;
+    const { csvText, passwordPrefix, userClass } = req.body;
+    const targetClass = userClass || 'V';
     const results = [];
 
     let rows;
     try {
       rows = parse(csvText, { skip_empty_lines: true, relax_column_count: true });
     } catch (e) {
-      // Fallback: split by newline and comma
       rows = csvText.split('\n').map(line => line.split(','));
     }
 
@@ -113,32 +113,28 @@ router.post('/bulk-create-users', requireAdmin, async (req, res) => {
       const row = rows[i];
       if (!row[0]) continue;
 
-      // Accept ANY format for username, display name, and password
-      // Convert to string first to handle numbers
       let username = String(row[0] || '').trim().toLowerCase();
       let displayName = row[1] ? String(row[1]).trim() : username;
       let password = row[2] ? String(row[2]).trim() : (passwordPrefix || 'safal') + (i + 1);
 
-      // Skip empty usernames
       if (!username) continue;
 
       try {
         const existing = await pool.query(
-          'SELECT * FROM users WHERE LOWER(username) = $1',
-          [username]
+          'SELECT * FROM users WHERE LOWER(username) = $1 AND class = $2',
+          [username, targetClass]
         );
 
         if (existing.rows.length > 0) {
-          results.push([username, 'ERROR: User already exists']);
+          results.push([username, 'ERROR: User already exists in Class ' + targetClass]);
           continue;
         }
 
-        // Hash password (works with any string including numbers)
         const hashedPassword = await bcrypt.hash(String(password), 10);
         await pool.query(
-          `INSERT INTO users (username, password, display_name, is_admin) 
-           VALUES ($1, $2, $3, FALSE)`,
-          [username, hashedPassword, displayName]
+          `INSERT INTO users (username, password, display_name, class, is_admin) 
+           VALUES ($1, $2, $3, $4, FALSE)`,
+          [username, hashedPassword, displayName, targetClass]
         );
 
         results.push([username, 'OK']);
@@ -148,7 +144,7 @@ router.post('/bulk-create-users', requireAdmin, async (req, res) => {
     }
 
     const createdCount = results.filter(r => r[1] === 'OK').length;
-    res.json({ success: true, results, created: createdCount });
+    res.json({ success: true, results, created: createdCount, class: targetClass });
   } catch (error) {
     console.error('Bulk create users error:', error);
     res.json({ success: false, message: error.message });
@@ -157,7 +153,8 @@ router.post('/bulk-create-users', requireAdmin, async (req, res) => {
 
 router.post('/upload-questions', requireAdmin, async (req, res) => {
   try {
-    const { csvText } = req.body;
+    const { csvText, questionClass } = req.body;
+    const targetClass = questionClass || 'V';
     let added = 0;
 
     let rows;
@@ -182,15 +179,15 @@ router.post('/upload-questions', requireAdmin, async (req, res) => {
       if (!questionText) continue;
 
       await pool.query(
-        `INSERT INTO questions (subject, question_text, option_a, option_b, option_c, option_d, correct_answer, image_url)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [subject, questionText, optionA, optionB, optionC, optionD, correct, imageUrl]
+        `INSERT INTO questions (subject, class, question_text, option_a, option_b, option_c, option_d, correct_answer, image_url)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [subject, targetClass, questionText, optionA, optionB, optionC, optionD, correct, imageUrl]
       );
 
       added++;
     }
 
-    res.json({ success: true, added });
+    res.json({ success: true, added, class: targetClass });
   } catch (error) {
     console.error('Upload questions error:', error);
     res.json({ success: false, message: error.message });
@@ -199,7 +196,8 @@ router.post('/upload-questions', requireAdmin, async (req, res) => {
 
 router.post('/upload-word-questions', requireAdmin, async (req, res) => {
   try {
-    const { wordBase64, subject, filename } = req.body;
+    const { wordBase64, subject, filename, questionClass } = req.body;
+    const targetClass = questionClass || 'V';
     
     if (!wordBase64 || !subject) {
       return res.json({ success: false, message: 'Word file and subject required' });
@@ -434,9 +432,9 @@ router.post('/upload-word-questions', requireAdmin, async (req, res) => {
             
             if (questionText && hasValidOptions) {
               await pool.query(
-                `INSERT INTO questions (subject, question_text, option_a, option_b, option_c, option_d, correct_answer, image_url, passage_id, passage_text, instruction_text)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-                [subject, questionText, optionA || '[Option]', optionB || '[Option]', optionC || '[Option]', optionD || '[Option]', correctAnswer, imageUrl, passageId, passageText, instructionText]
+                `INSERT INTO questions (subject, class, question_text, option_a, option_b, option_c, option_d, correct_answer, image_url, passage_id, passage_text, instruction_text)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+                [subject, targetClass, questionText, optionA || '[Option]', optionB || '[Option]', optionC || '[Option]', optionD || '[Option]', correctAnswer, imageUrl, passageId, passageText, instructionText]
               );
               added++;
             }
@@ -534,9 +532,9 @@ router.post('/upload-word-questions', requireAdmin, async (req, res) => {
         
         if (questionText && hasOptions) {
           await pool.query(
-            `INSERT INTO questions (subject, question_text, option_a, option_b, option_c, option_d, correct_answer, image_url, passage_id, passage_text, instruction_text)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-            [subject, questionText, optionA || '[Option A]', optionB || '[Option B]', optionC || '[Option C]', optionD || '[Option D]', correctAnswer, imageUrl, passageId, passageText, instructionText]
+            `INSERT INTO questions (subject, class, question_text, option_a, option_b, option_c, option_d, correct_answer, image_url, passage_id, passage_text, instruction_text)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+            [subject, targetClass, questionText, optionA || '[Option A]', optionB || '[Option B]', optionC || '[Option C]', optionD || '[Option D]', correctAnswer, imageUrl, passageId, passageText, instructionText]
           );
           added++;
         }

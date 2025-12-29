@@ -6,20 +6,28 @@ const { pool, getConfig } = require('../database');
 
 router.post('/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, userClass } = req.body;
     const normalizedUsername = (username || '').toLowerCase().trim();
     
     if (!normalizedUsername) {
       return res.json({ success: false, message: 'Username required' });
     }
 
-    const result = await pool.query(
-      'SELECT * FROM users WHERE LOWER(username) = $1',
-      [normalizedUsername]
-    );
+    let result;
+    if (userClass && userClass !== '') {
+      result = await pool.query(
+        'SELECT * FROM users WHERE LOWER(username) = $1 AND (class = $2 OR class = $3 OR is_admin = TRUE)',
+        [normalizedUsername, userClass, 'ALL']
+      );
+    } else {
+      result = await pool.query(
+        'SELECT * FROM users WHERE LOWER(username) = $1 AND is_admin = TRUE',
+        [normalizedUsername]
+      );
+    }
 
     if (result.rows.length === 0) {
-      return res.json({ success: false, message: 'User not found' });
+      return res.json({ success: false, message: 'User not found for selected class' });
     }
 
     const user = result.rows[0];
@@ -48,6 +56,7 @@ router.post('/login', async (req, res) => {
       username: user.username,
       name: user.display_name || user.username,
       isAdmin: user.is_admin,
+      userClass: user.class || 'V',
       token: token,
       examActive: examActive === 'TRUE'
     });

@@ -113,10 +113,11 @@ document.getElementById('login-form').addEventListener('submit', async function(
   e.preventDefault();
   const u = document.getElementById('username').value.trim();
   const p = document.getElementById('password').value;
+  const c = document.getElementById('loginClass').value;
   document.getElementById('login-error').innerText = "Checking...";
 
   try {
-    const res = await apiCall('/auth/login', { username: u, password: p });
+    const res = await apiCall('/auth/login', { username: u, password: p, userClass: c });
     
     if (res && res.success) {
       session = res;
@@ -170,16 +171,18 @@ document.getElementById('backToLoginBtn').onclick = function() {
 document.getElementById('uploadUsersBtn').onclick = async function() {
   const csvText = document.getElementById('userCSV').value;
   const passwordPrefix = document.getElementById('pwPrefix').value;
+  const userClass = document.getElementById('userClassSelect').value;
   
   try {
     const res = await apiCall('/admin/bulk-create-users', {
       token: session.token,
       csvText,
-      passwordPrefix
+      passwordPrefix,
+      userClass
     });
     
     if (res.success) {
-      alert('Users uploaded successfully!');
+      alert('Users uploaded successfully for Class ' + userClass + '!');
       document.getElementById('userCSV').value = '';
     } else {
       alert('Error: ' + (res.message || 'Failed to upload users'));
@@ -197,6 +200,7 @@ document.getElementById('bulkUploadUsersBtn').onclick = async function() {
   }
   
   const file = fileInput.files[0];
+  const userClass = document.getElementById('userClassSelect').value;
   const reader = new FileReader();
   
   reader.onload = async function(e) {
@@ -206,11 +210,12 @@ document.getElementById('bulkUploadUsersBtn').onclick = async function() {
       const res = await apiCall('/admin/bulk-create-users', {
         token: session.token,
         csvText,
-        passwordPrefix: ''
+        passwordPrefix: '',
+        userClass
       });
       
       if (res.success) {
-        alert('Users uploaded successfully! Created: ' + (res.created || 0) + ' users');
+        alert('Users uploaded successfully for Class ' + userClass + '! Created: ' + (res.created || 0) + ' users');
         fileInput.value = '';
       } else {
         alert('Error: ' + (res.message || 'Failed to upload users'));
@@ -317,6 +322,7 @@ document.getElementById('importGoogleSheetBtn').onclick = async function() {
 document.getElementById('uploadWordBtn').onclick = async function() {
   const fileInput = document.getElementById('wordFileInput');
   const subject = document.getElementById('wordSubject').value;
+  const questionClass = document.getElementById('questionClassSelect').value;
   
   if (!fileInput.files || !fileInput.files[0]) {
     alert('Please select a Word file (.docx)');
@@ -342,11 +348,12 @@ document.getElementById('uploadWordBtn').onclick = async function() {
           token: session.token,
           wordBase64: base64,
           subject: subject,
-          filename: file.name
+          filename: file.name,
+          questionClass: questionClass
         });
         
         if (res.success) {
-          alert('Success! Added ' + res.added + ' questions' + (res.passages > 0 ? ' with ' + res.passages + ' passages' : ''));
+          alert('Success! Added ' + res.added + ' questions for Class ' + questionClass + (res.passages > 0 ? ' with ' + res.passages + ' passages' : ''));
           fileInput.value = '';
         } else {
           alert('Error: ' + (res.message || 'Failed to upload Word file'));
@@ -782,7 +789,8 @@ async function resumeExam(savedState) {
   const q = await apiCall('/questions/get-question', {
     token: session.token,
     subject: currentSubject,
-    index: currentIndex
+    index: currentIndex,
+    userClass: session.userClass || 'V'
   });
   
   if (q && !q.error) {
@@ -835,7 +843,8 @@ async function startExamForSubject() {
     const q = await apiCall('/questions/get-question', {
       token: session.token,
       subject: currentSubject,
-      index: 0
+      index: 0,
+      userClass: session.userClass || 'V'
     });
     
     if (!q || q.error) {
@@ -922,7 +931,8 @@ async function goToQuestion(index) {
     const q = await apiCall('/questions/get-question', {
       token: session.token,
       subject: currentSubject,
-      index: index
+      index: index,
+      userClass: session.userClass || 'V'
     });
     if (q && !q.error) renderQuestion(q, index);
   } catch (e) {
@@ -1073,7 +1083,8 @@ async function prevQ() {
       const q = await apiCall('/questions/get-question', {
         token: session.token,
         subject: currentSubject,
-        index: currentIndex - 1
+        index: currentIndex - 1,
+        userClass: session.userClass || 'V'
       });
       renderQuestion(q, currentIndex - 1);
     } catch (e) {
@@ -1087,7 +1098,8 @@ async function nextQ() {
     const q = await apiCall('/questions/get-question', {
       token: session.token,
       subject: currentSubject,
-      index: currentIndex + 1
+      index: currentIndex + 1,
+      userClass: session.userClass || 'V'
     });
     if (q && !q.error) renderQuestion(q, currentIndex + 1);
   } catch (e) {

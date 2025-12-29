@@ -11,9 +11,10 @@ function shuffleArray(array) {
   return array;
 }
 
-async function assignPaperIfNeeded(username, subject) {
+async function assignPaperIfNeeded(username, subject, userClass) {
   username = (username || '').toLowerCase().trim();
   subject = (subject || '').trim();
+  userClass = (userClass || 'V').trim();
 
   const userResult = await pool.query(
     'SELECT * FROM users WHERE LOWER(username) = $1',
@@ -25,15 +26,17 @@ async function assignPaperIfNeeded(username, subject) {
   }
 
   const user = userResult.rows[0];
+  const effectiveClass = user.class || userClass || 'V';
   let assignedObj = user.assigned_questions || {};
 
-  if (assignedObj[subject] && Array.isArray(assignedObj[subject])) {
-    return assignedObj[subject];
+  const subjectKey = `${subject}_${effectiveClass}`;
+  if (assignedObj[subjectKey] && Array.isArray(assignedObj[subjectKey])) {
+    return assignedObj[subjectKey];
   }
 
   const questionsResult = await pool.query(
-    'SELECT id FROM questions WHERE LOWER(subject) LIKE $1',
-    [`%${subject.toLowerCase()}%`]
+    'SELECT id FROM questions WHERE LOWER(subject) LIKE $1 AND (class = $2 OR class IS NULL)',
+    [`%${subject.toLowerCase()}%`, effectiveClass]
   );
 
   const pool_ids = questionsResult.rows.map(q => q.id);
@@ -42,13 +45,13 @@ async function assignPaperIfNeeded(username, subject) {
   const totalNeeded = parseInt(totalConfig, 10) || 50;
 
   if (pool_ids.length < totalNeeded) {
-    throw new Error(`Not enough questions for ${subject} (need ${totalNeeded}, have ${pool_ids.length})`);
+    throw new Error(`Not enough questions for ${subject} Class ${effectiveClass} (need ${totalNeeded}, have ${pool_ids.length})`);
   }
 
   shuffleArray(pool_ids);
   const selected = pool_ids.slice(0, totalNeeded);
 
-  assignedObj[subject] = selected;
+  assignedObj[subjectKey] = selected;
   
   await pool.query(
     'UPDATE users SET assigned_questions = $1 WHERE id = $2',
@@ -60,7 +63,7 @@ async function assignPaperIfNeeded(username, subject) {
 
 router.post('/get-question', async (req, res) => {
   try {
-    const { token, subject, index } = req.body;
+    const { token, subject, index, userClass } = req.body;
 
     const user = await getUserFromToken(token);
     if (!user) {
@@ -73,7 +76,8 @@ router.post('/get-question', async (req, res) => {
     }
 
     const subjectName = (subject || '').trim();
-    const assignedIds = await assignPaperIfNeeded(user.username, subjectName);
+    const effectiveClass = user.class || userClass || 'V';
+    const assignedIds = await assignPaperIfNeeded(user.username, subjectName, effectiveClass);
     const total = assignedIds.length;
 
     if (index < 0 || index >= total) {

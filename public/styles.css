@@ -1630,3 +1630,33 @@ select.input-field {
     max-height: 200px;
   }
 }
+
+/* Footer Styles */
+.site-footer {
+  background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%);
+  color: white;
+  text-align: center;
+  padding: 15px 20px;
+  font-size: 0.9em;
+  margin-top: auto;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+}
+
+.footer-content {
+  font-weight: 400;
+}
+
+.footer-content strong {
+  font-weight: 700;
+  color: #a5d6a7;
+}
+
+/* Adjust container padding for fixed footer */
+.container {
+  padding-bottom: 60px;
+}

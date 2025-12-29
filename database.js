@@ -11,21 +11,28 @@ async function initDatabase() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
-        username VARCHAR(255) UNIQUE NOT NULL,
+        username VARCHAR(255) NOT NULL,
         password VARCHAR(255) NOT NULL,
         display_name VARCHAR(255),
+        class VARCHAR(20) DEFAULT 'V',
         is_admin BOOLEAN DEFAULT FALSE,
         submitted BOOLEAN DEFAULT FALSE,
         assigned_questions JSONB DEFAULT '{}',
         session_token VARCHAR(255),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(username, class)
       );
     `);
+    
+    try {
+      await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS class VARCHAR(20) DEFAULT 'V'`);
+    } catch (e) {}
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS questions (
         id SERIAL PRIMARY KEY,
         subject VARCHAR(255) NOT NULL,
+        class VARCHAR(20) DEFAULT 'V',
         question_text TEXT NOT NULL,
         option_a TEXT,
         option_b TEXT,
@@ -44,6 +51,10 @@ async function initDatabase() {
     `);
     
     try {
+      await client.query(`ALTER TABLE questions ADD COLUMN IF NOT EXISTS class VARCHAR(20) DEFAULT 'V'`);
+    } catch (e) {}
+    
+    try {
       await client.query(`ALTER TABLE questions ADD COLUMN IF NOT EXISTS passage_id INTEGER`);
       await client.query(`ALTER TABLE questions ADD COLUMN IF NOT EXISTS passage_text TEXT`);
       await client.query(`ALTER TABLE questions ADD COLUMN IF NOT EXISTS option_a_image TEXT`);
@@ -56,17 +67,23 @@ async function initDatabase() {
       CREATE TABLE IF NOT EXISTS responses (
         id SERIAL PRIMARY KEY,
         username VARCHAR(255) NOT NULL,
+        class VARCHAR(20) DEFAULT 'V',
         subject VARCHAR(255) NOT NULL,
         score INTEGER DEFAULT 0,
         answers JSONB DEFAULT '{}',
         submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    
+    try {
+      await client.query(`ALTER TABLE responses ADD COLUMN IF NOT EXISTS class VARCHAR(20) DEFAULT 'V'`);
+    } catch (e) {}
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS grades (
         id SERIAL PRIMARY KEY,
         username VARCHAR(255) NOT NULL,
+        class VARCHAR(20) DEFAULT 'V',
         display_name VARCHAR(255),
         subject VARCHAR(255) NOT NULL,
         score INTEGER DEFAULT 0,
@@ -74,6 +91,10 @@ async function initDatabase() {
         graded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    
+    try {
+      await client.query(`ALTER TABLE grades ADD COLUMN IF NOT EXISTS class VARCHAR(20) DEFAULT 'V'`);
+    } catch (e) {}
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS config (
@@ -109,18 +130,18 @@ async function initDatabase() {
     } catch (e) {}
 
     const adminCheck = await client.query(
-      "SELECT * FROM users WHERE username = 'admin'"
+      "SELECT * FROM users WHERE username = 'smartadmin'"
     );
     
     if (adminCheck.rows.length === 0) {
       const bcrypt = require('bcryptjs');
-      const hashedPassword = await bcrypt.hash('Admin123', 10);
+      const hashedPassword = await bcrypt.hash('SmartGen@2025', 10);
       await client.query(
-        `INSERT INTO users (username, password, display_name, is_admin) 
-         VALUES ('admin', $1, 'Administrator', TRUE)`,
+        `INSERT INTO users (username, password, display_name, is_admin, class) 
+         VALUES ('smartadmin', $1, 'Administrator', TRUE, 'ALL')`,
         [hashedPassword]
       );
-      console.log('Default admin created: username=admin, password=Admin123');
+      console.log('Default admin created: username=smartadmin, password=SmartGen@2025');
     }
 
     const configCheck = await client.query(
